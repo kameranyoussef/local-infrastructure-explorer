@@ -2,6 +2,8 @@
 
 [![Test and deploy](https://github.com/kameranyoussef/local-infrastructure-explorer/actions/workflows/deploy.yml/badge.svg)](https://github.com/kameranyoussef/local-infrastructure-explorer/actions/workflows/deploy.yml)
 
+<img width="1194" height="1215" alt="Local Infrastructure Explorer" src="https://github.com/user-attachments/assets/ff6f6033-9a0c-461f-a401-18d7f46f7eaf" />
+
 An interactive map of population change across the UK's local authorities, built with Svelte and MapLibre GL JS.
 
 **Live site:** https://kameranyoussef.github.io/local-infrastructure-explorer/
