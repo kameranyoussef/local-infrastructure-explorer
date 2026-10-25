@@ -1,43 +1,93 @@
-# Svelte + Vite
+# Local Infrastructure Explorer
 
-This template should help get you started developing with Svelte in Vite.
+[![Test and deploy](https://github.com/kameranyoussef/local-infrastructure-explorer/actions/workflows/deploy.yml/badge.svg)](https://github.com/kameranyoussef/local-infrastructure-explorer/actions/workflows/deploy.yml)
 
-## Recommended IDE Setup
+An interactive map of population change across the UK's local authorities, built with Svelte and MapLibre GL JS.
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
+**Live site:** https://kameranyoussef.github.io/local-infrastructure-explorer/
 
-## Need an official Svelte framework?
+I built this as a small project to explore the kind of place-based spatial tooling used for infrastructure planning: combining official boundary and statistical data in one accessible web interface.
 
-Check out [SvelteKit](https://github.com/sveltejs/kit#readme), which is also powered by Vite. Deploy anywhere with its serverless-first approach and adapt to various platforms, with out of the box support for TypeScript, SCSS, and Less, and easily-added support for mdsvex, GraphQL, PostCSS, Tailwind CSS, and more.
+## What it does
 
-## Technical considerations
+- Colours each of the 361 UK local authority areas by population change between mid-2015 and mid-2025.
+- Click an area to see its population, and its change since mid-2015 and mid-2024.
+- A legend explains the colour scale.
+- A sortable table view lists every area, so the data can be used with a keyboard or screen reader without the map.
 
-**Why use this over SvelteKit?**
+## Tech
 
-- It brings its own routing solution which might not be preferable for some users.
-- It is first and foremost a framework that just happens to use Vite under the hood, not a Vite app.
+- **Svelte 5** and **Vite** for the front end
+- **MapLibre GL JS 6** for the map, with an OpenFreeMap basemap
+- **Vitest** for unit tests
+- **GitHub Actions** to run the tests, build, and deploy to GitHub Pages on every push to `main`
+- **Node.js** scripts (`exceljs`, `proj4`, `mapshaper`) that prepare the source data
 
-This template contains as little as possible to get started with Vite + Svelte, while taking into account the developer experience with regards to HMR and intellisense. It demonstrates capabilities on par with the other `create-vite` templates and is a good starting point for beginners dipping their toes into a Vite + Svelte project.
+## Data
 
-Should you later need the extended capabilities and extensibility provided by SvelteKit, the template has been structured similarly to SvelteKit so that it is easy to migrate.
+| Data | Source |
+|---|---|
+| Local authority boundaries | [ONS Open Geography Portal](https://www.data.gov.uk/dataset/e2f256dc-9313-487b-8190-46b0da8c2798/local-authority-districts-december-2025-boundaries-uk-bgc): Local Authority Districts (December 2025) Boundaries UK BGC (generalised to 20m) |
+| Population estimates | [ONS mid-year population estimates](https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates/datasets/populationestimatesforukenglandandwalesscotlandandnorthernireland): mid-2025 release, table MYE4 |
 
-**Why include `.vscode/extensions.json`?**
+Contains OS data © Crown copyright and database right 2026. Contains public sector information licensed under the [Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
 
-Other templates indirectly recommend extensions via the README, but this file allows VS Code to prompt the user to install the recommended extension upon opening the project.
+This is a personal project and is not an official ONS product.
 
-**Why enable `checkJs` in the JS template?**
+### Data preparation
 
-It is likely that most cases of changing variable types in runtime are likely to be accidental, rather than deliberate. This provides advanced typechecking out of the box. Should you like to take advantage of the dynamically-typed nature of JavaScript, it is trivial to change the configuration.
+The boundaries arrive in British National Grid coordinates, so `scripts/prepare-boundaries.mjs` reprojects them to longitude/latitude and keeps only the area code and name. `mapshaper` then simplifies the shapes, which brings the file from about 10 MB to a size suitable for the web. `scripts/prepare-population.mjs` reads the ONS spreadsheet and writes population and growth figures keyed by area code. The map joins the two files on that code.
 
-**Why is HMR not preserving my local component state?**
+### Known data caveat
 
-HMR state preservation comes with a number of gotchas! It has been disabled by default in both `svelte-hmr` and `@sveltejs/vite-plugin-svelte` due to its often surprising behavior. You can read the details [here](https://github.com/sveltejs/svelte-hmr/tree/master/packages/svelte-hmr#preservation-of-local-state).
+Barnsley and Sheffield have new area codes in the December 2025 boundaries (`E08000038`, `E08000039`) but still use their previous codes in the mid-2025 population release (`E08000016`, `E08000019`). I matched them by name and area type, and the mapping is recorded in `scripts/prepare-population.mjs`. I have not established why the codes changed, so the population figures for these two areas may refer to a slightly different area than the boundary shown.
 
-If you have state that's important to retain within a component, consider creating an external store which would not be replaced by HMR.
+## Design decisions
 
-```js
-// store.js
-// An extremely simple external store
-import { writable } from 'svelte/store'
-export default writable(0)
+- **Ten-year change rather than one-year change.** A single year of population estimates is noisy, so the map colours by change since mid-2015. The one-year figure is still shown in the details panel.
+- **Fixed colour classes** with a legend generated from the same breakpoints as the map, so the two cannot drift apart.
+- **A table alongside the map.** A map you can only click is not usable by everyone, so the same data is available as a sortable table.
+- **Pure functions for the logic.** The data join, number formatting and colour scale are plain functions with unit tests, separate from the Svelte components.
+
+## Accessibility
+
+Built with accessibility in mind: semantic headings, labelled regions, a table alternative to the map, keyboard-operable controls with a visible focus indicator, and text labels for every colour class. This has not had a formal audit, and the map itself cannot be operated by keyboard, which is why the table view exists.
+
+## Running it locally
+
+Requires Node.js.
+
+```bash
+git clone https://github.com/kameranyoussef/local-infrastructure-explorer.git
+cd local-infrastructure-explorer
+npm install
+npm run dev
 ```
+
+The prepared data files are committed in `public/data`, so the app runs without any extra steps.
+
+### Rebuilding the data
+
+1. Download the two source files and save them as:
+   - `data/raw/local-authorities-bng.geojson` (the GeoJSON download from the boundaries dataset above)
+   - `data/raw/mye25tablesuk.xlsx` (the mid-2025 file from the population dataset above)
+2. Run:
+
+```bash
+npm run prepare-data
+npm run prepare-population
+```
+
+### Other commands
+
+```bash
+npm test          # run the unit tests
+npm run build     # production build
+npm run preview   # serve the production build locally
+```
+
+## Possible next steps
+
+- Add housing data (for example, dwelling stock by local authority) as a second layer.
+- Add a keyboard-accessible area search.
+- Run an automated accessibility check in CI.
