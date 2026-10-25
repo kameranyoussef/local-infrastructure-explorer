@@ -1,8 +1,12 @@
 <script>
-    import { Map, NavigationControl } from "maplibre-gl";
-    import "maplibre-gl/dist/maplibre-gl.css";
+    import { Map, NavigationControl, setWorkerUrl } from "maplibre-gl";
     import { onMount } from "svelte";
+    // @ts-ignore - Vite's ?worker&url suffix isn't known to the type checker
+    import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+    import "maplibre-gl/dist/maplibre-gl.css";
     import { growthColourExpression } from "./scale.js";
+
+    setWorkerUrl(workerUrl);
 
     /** @type {{ data: any, selectedCode: string | null, onselect: (area: any) => void }} */
     let { data, selectedCode, onselect } = $props();
