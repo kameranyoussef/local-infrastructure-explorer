@@ -2,14 +2,13 @@
     import { Map, NavigationControl } from "maplibre-gl";
     import "maplibre-gl/dist/maplibre-gl.css";
     import { onMount } from "svelte";
+    import { joinPopulation, loadJson } from "./data.js";
+    import { growthColourExpression } from "./scale.js";
 
     /** @type {HTMLDivElement} */
     let container;
 
-    const dataUrl = new URL(
-        `${import.meta.env.BASE_URL}data/local-authorities.geojson`,
-        window.location.origin,
-    ).href;
+    const base = import.meta.env.BASE_URL;
 
     onMount(() => {
         const map = new Map({
@@ -23,31 +22,51 @@
 
         map.addControl(new NavigationControl(), "top-right");
 
-        map.on("load", () => {
-            map.addSource("local-authorities", {
-                type: "geojson",
-                data: dataUrl,
-            });
+        map.on("load", async () => {
+            try {
+                const [boundaries, population] = await Promise.all([
+                    loadJson(`${base}data/local-authorities.geojson`),
+                    loadJson(`${base}data/population.json`),
+                ]);
 
-            map.addLayer({
-                id: "la-fill",
-                type: "fill",
-                source: "local-authorities",
-                paint: {
-                    "fill-color": "#1d70b8",
-                    "fill-opacity": 0.35,
-                },
-            });
+                const { geojson, unmatched } = joinPopulation(
+                    boundaries,
+                    population,
+                );
+                if (unmatched.length > 0) {
+                    console.warn(
+                        `${unmatched.length} areas have no population data:`,
+                        unmatched,
+                    );
+                }
 
-            map.addLayer({
-                id: "la-outline",
-                type: "line",
-                source: "local-authorities",
-                paint: {
-                    "line-color": "#ffffff",
-                    "line-width": 0.8,
-                },
-            });
+                map.addSource("local-authorities", {
+                    type: "geojson",
+                    data: geojson,
+                });
+
+                map.addLayer({
+                    id: "la-fill",
+                    type: "fill",
+                    source: "local-authorities",
+                    paint: {
+                        "fill-color": growthColourExpression("growth10y"),
+                        "fill-opacity": 0.8,
+                    },
+                });
+
+                map.addLayer({
+                    id: "la-outline",
+                    type: "line",
+                    source: "local-authorities",
+                    paint: {
+                        "line-color": "#ffffff",
+                        "line-width": 0.6,
+                    },
+                });
+            } catch (error) {
+                console.error("Could not load map data", error);
+            }
         });
 
         return () => map.remove();
@@ -58,7 +77,7 @@
     class="map"
     bind:this={container}
     role="region"
-    aria-label="Map of the United Kingdom"
+    aria-label="Map of population growth by local authority in the United Kingdom"
 ></div>
 
 <style>
