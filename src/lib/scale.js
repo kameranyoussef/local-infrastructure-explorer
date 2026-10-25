@@ -31,3 +31,16 @@ export function growthColourExpression(property = 'growth10y') {
         NO_DATA_COLOUR
     ]);
 }
+
+/** Legend entries derived from the same breaks and colours as the map. */
+export const LEGEND_ITEMS = COLOURS.map((colour, i) => {
+    let label;
+    if (i === 0) {
+        label = `Below ${BREAKS[0]}%`;
+    } else if (i === BREAKS.length) {
+        label = `${BREAKS[i - 1]}% or more`;
+    } else {
+        label = `${BREAKS[i - 1]}% to under ${BREAKS[i]}%`;
+    }
+    return { colour, label };
+});

@@ -13,3 +13,15 @@ h1 {
   margin: 0;
   font-size: 1.75rem;
 }
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+:focus-visible {
+  outline: 3px solid #ffdd00;
+  outline-offset: 0;
+  box-shadow: 0 0 0 5px #0b0c0c;
+}

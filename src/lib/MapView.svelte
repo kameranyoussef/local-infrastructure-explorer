@@ -2,16 +2,28 @@
     import { Map, NavigationControl } from "maplibre-gl";
     import "maplibre-gl/dist/maplibre-gl.css";
     import { onMount } from "svelte";
-    import { joinPopulation, loadJson } from "./data.js";
     import { growthColourExpression } from "./scale.js";
+
+    /** @type {{ data: any, selectedCode: string | null, onselect: (area: any) => void }} */
+    let { data, selectedCode, onselect } = $props();
 
     /** @type {HTMLDivElement} */
     let container;
 
-    const base = import.meta.env.BASE_URL;
+    /** @type {Map | undefined} */
+    let map;
+    let ready = $state(false);
+
+    /**
+     * @param {string | null} code
+     * @returns {any}
+     */
+    function selectionFilter(code) {
+        return ["==", ["get", "code"], code ?? ""];
+    }
 
     onMount(() => {
-        const map = new Map({
+        const instance = new Map({
             container,
             style: "https://tiles.openfreemap.org/styles/positron",
             center: [-3.5, 54.5],
@@ -19,57 +31,62 @@
             minZoom: 4,
             maxZoom: 12,
         });
+        map = instance;
 
-        map.addControl(new NavigationControl(), "top-right");
+        instance.addControl(new NavigationControl(), "top-right");
 
-        map.on("load", async () => {
-            try {
-                const [boundaries, population] = await Promise.all([
-                    loadJson(`${base}data/local-authorities.geojson`),
-                    loadJson(`${base}data/population.json`),
-                ]);
+        instance.on("load", () => {
+            instance.addSource("local-authorities", { type: "geojson", data });
 
-                const { geojson, unmatched } = joinPopulation(
-                    boundaries,
-                    population,
-                );
-                if (unmatched.length > 0) {
-                    console.warn(
-                        `${unmatched.length} areas have no population data:`,
-                        unmatched,
-                    );
-                }
+            instance.addLayer({
+                id: "la-fill",
+                type: "fill",
+                source: "local-authorities",
+                paint: {
+                    "fill-color": growthColourExpression("growth10y"),
+                    "fill-opacity": 0.8,
+                },
+            });
 
-                map.addSource("local-authorities", {
-                    type: "geojson",
-                    data: geojson,
-                });
+            instance.addLayer({
+                id: "la-outline",
+                type: "line",
+                source: "local-authorities",
+                paint: { "line-color": "#ffffff", "line-width": 0.6 },
+            });
 
-                map.addLayer({
-                    id: "la-fill",
-                    type: "fill",
-                    source: "local-authorities",
-                    paint: {
-                        "fill-color": growthColourExpression("growth10y"),
-                        "fill-opacity": 0.8,
-                    },
-                });
+            instance.addLayer({
+                id: "la-selected",
+                type: "line",
+                source: "local-authorities",
+                filter: selectionFilter(selectedCode),
+                paint: { "line-color": "#0b0c0c", "line-width": 3 },
+            });
 
-                map.addLayer({
-                    id: "la-outline",
-                    type: "line",
-                    source: "local-authorities",
-                    paint: {
-                        "line-color": "#ffffff",
-                        "line-width": 0.6,
-                    },
-                });
-            } catch (error) {
-                console.error("Could not load map data", error);
-            }
+            instance.on("click", "la-fill", (event) => {
+                const feature = event.features?.[0];
+                if (feature) onselect(feature.properties);
+            });
+
+            instance.on("mouseenter", "la-fill", () => {
+                instance.getCanvas().style.cursor = "pointer";
+            });
+
+            instance.on("mouseleave", "la-fill", () => {
+                instance.getCanvas().style.cursor = "";
+            });
+
+            ready = true;
         });
 
-        return () => map.remove();
+        return () => instance.remove();
+    });
+
+    // Keep the highlighted outline in step with the selected area.
+    $effect(() => {
+        if (ready && map) {
+            map.setFilter("la-selected", selectionFilter(selectedCode));
+        }
     });
 </script>
 
@@ -77,7 +94,7 @@
     class="map"
     bind:this={container}
     role="region"
-    aria-label="Map of population growth by local authority in the United Kingdom"
+    aria-label="Map of population change by local authority in the United Kingdom. A table view is also available."
 ></div>
 
 <style>
