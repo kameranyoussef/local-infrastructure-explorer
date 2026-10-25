@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prepare-data": "node scripts/prepare-boundaries.mjs data/raw/local-authorities-bng.geojson data/raw/local-authorities-wgs84.geojson && mapshaper data/raw/local-authorities-wgs84.geojson -simplify 25% keep-shapes -o public/data/local-authorities.geojson force precision=0.0001"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "mapshaper": "^0.7.98",
+    "proj4": "^2.22.0",
     "svelte": "^5.57.2",
     "vite": "^8.3.4"
   },
